@@ -1,32 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 
-const students = [
-  "Lê Tuấn Anh",
-  "Nguyễn Bá Đức Anh",
-  "Nguyễn Gia Tuấn Anh",
-  "Tạ Thị Vân Anh",
-  "Trịnh Phương Anh",
-  "Vũ Đức Trọng",
-  "Hoàng Anh Tuấn",
-];
-
-const colors = [
-  "#ff5722",
-  "#e91e63",
-  "#9c27b0",
-  "#673ab7",
-  "#3f51b5",
-  "#2196f3",
-  "#03a9f4",
-];
+type Student = {
+  name: string;
+  scores: string[];
+};
 
 export default function Page() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [students, setStudents] = useState<Student[]>([
+    { name: "Lê Tuấn Anh", scores: ["-", "-", "-", "-", "-"] },
+    { name: "Nguyễn Bá Đức Anh", scores: ["-", "-", "-", "-", "-"] },
+    { name: "Nguyễn Gia Tuấn Anh", scores: ["7", "-", "-", "-", "-"] },
+    { name: "Tạ Thị Vân Anh", scores: ["-", "-", "-", "-", "-"] },
+    { name: "Trịnh Phương Anh", scores: ["-", "-", "-", "-", "-"] },
+    { name: "Vũ Đức Trọng", scores: ["-", "-", "-", "-", "-"] },
+    { name: "Hoàng Anh Tuấn", scores: ["-", "-", "-", "-", "-"] },
+  ]);
+
+  const [winner, setWinner] = useState<number | null>(null);
   const [angle, setAngle] = useState(0);
   const [spinning, setSpinning] = useState(false);
 
+  const colors = ["#ff5722", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4"];
+
+  // 🎡 DRAW WHEEL
   const drawWheel = (ctx: CanvasRenderingContext2D) => {
     const size = 400;
     const radius = size / 2;
@@ -34,7 +35,7 @@ export default function Page() {
 
     ctx.clearRect(0, 0, size, size);
 
-    students.forEach((name, i) => {
+    students.forEach((s, i) => {
       const start = i * arc + angle;
       const end = start + arc;
 
@@ -44,37 +45,27 @@ export default function Page() {
       ctx.arc(radius, radius, radius - 10, start, end);
       ctx.fill();
 
-      // text
       ctx.save();
       ctx.translate(radius, radius);
       ctx.rotate(start + arc / 2);
       ctx.fillStyle = "#fff";
       ctx.font = "14px sans-serif";
       ctx.textAlign = "right";
-      ctx.fillText(name, radius - 20, 5);
+      ctx.fillText(s.name, radius - 20, 5);
       ctx.restore();
     });
-
-    // center
-    ctx.beginPath();
-    ctx.arc(radius, radius, 30, 0, 2 * Math.PI);
-    ctx.fillStyle = "#eee";
-    ctx.fill();
   };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx && students.length > 0) drawWheel(ctx);
+  }, [angle, students]);
 
-    drawWheel(ctx);
-  }, [angle]);
-
+  // 🎯 SPIN
   const spin = () => {
-    if (spinning) return;
-    setSpinning(true);
+    if (spinning || students.length === 0) return;
 
+    setSpinning(true);
     let velocity = Math.random() * 0.3 + 0.3;
 
     const animate = () => {
@@ -83,6 +74,13 @@ export default function Page() {
         velocity *= 0.97;
 
         if (velocity < 0.002) {
+          const arc = (2 * Math.PI) / students.length;
+          const index =
+            students.length -
+            Math.floor(((newAngle % (2 * Math.PI)) / arc)) -
+            1;
+
+          setWinner(index);
           setSpinning(false);
           return newAngle;
         }
@@ -95,94 +93,119 @@ export default function Page() {
     animate();
   };
 
+  // ❌ REMOVE WINNER
+  const removeWinner = () => {
+    if (winner === null) return;
+    const newList = students.filter((_, i) => i !== winner);
+    setStudents(newList);
+    setWinner(null);
+  };
+
+  // 💾 SAVE LOCAL
+  const saveData = () => {
+    localStorage.setItem("students", JSON.stringify(students));
+    alert("Đã lưu!");
+  };
+
+  // 📂 LOAD LOCAL
+  useEffect(() => {
+    const data = localStorage.getItem("students");
+    if (data) setStudents(JSON.parse(data));
+  }, []);
+
+  // 📥 IMPORT EXCEL
+  const importExcel = (e: any) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      const wb = XLSX.read(evt.target?.result, { type: "binary" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<any>(sheet);
+
+      const newStudents = json.map((row: any) => ({
+        name: row["HỌ VÀ TÊN"] || row["name"],
+        scores: ["-", "-", "-", "-", "-"],
+      }));
+
+      setStudents(newStudents);
+    };
+
+    reader.readAsBinaryString(file);
+  };
+
+  // 📤 EXPORT EXCEL
+  const exportExcel = () => {
+    const data = students.map((s, i) => ({
+      STT: i + 1,
+      "HỌ VÀ TÊN": s.name,
+      TX1: s.scores[0],
+      TX2: s.scores[1],
+      TX3: s.scores[2],
+      TX4: s.scores[3],
+      TX5: s.scores[4],
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Students");
+
+    XLSX.writeFile(wb, "students.xlsx");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      {/* HEADER */}
-      <div className="bg-blue-600 text-white text-center py-2 rounded-md mb-4 text-sm">
-        PHÁT TRIỂN BỞI THẦY LƯƠNG ĐÌNH HÙNG ZALO 0986 282 414 © 2026
+    <div className="p-4">
+      {/* BUTTONS */}
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <button onClick={spin} className="bg-blue-500 text-white px-4 py-2 rounded">
+          QUAY
+        </button>
+
+        <button onClick={removeWinner} className="bg-gray-200 px-4 py-2 rounded">
+          LOẠI BỎ NGƯỜI THẮNG
+        </button>
+
+        <label className="bg-gray-200 px-4 py-2 rounded cursor-pointer">
+          NHẬP EXCEL
+          <input type="file" hidden onChange={importExcel} />
+        </label>
+
+        <button onClick={saveData} className="bg-gray-200 px-4 py-2 rounded">
+          LƯU TRÌNH DUYỆT
+        </button>
+
+        <button onClick={exportExcel} className="bg-gray-200 px-4 py-2 rounded">
+          XUẤT EXCEL
+        </button>
       </div>
 
-      {/* TOP BAR */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          🏆 VÒNG QUAY MAY MẮN
-        </h1>
-
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={spin}
-            className="bg-indigo-500 text-white px-4 py-2 rounded-full shadow"
-          >
-            ▶ QUAY NGAY!
-          </button>
-
-          <button className="bg-white px-3 py-2 rounded shadow">
-            ⬜ LOẠI BỎ NGƯỜI THẮNG
-          </button>
-
-          <button className="bg-white px-3 py-2 rounded shadow">
-            ⬆ NHẬP EXCEL
-          </button>
-
-          <button className="bg-white px-3 py-2 rounded shadow">
-            💾 LƯU TRÌNH DUYỆT
-          </button>
-
-          <button className="bg-white px-3 py-2 rounded shadow">
-            ⬇ XUẤT EXCEL
-          </button>
+      {/* WINNER */}
+      {winner !== null && (
+        <div className="mb-2 text-green-600 font-bold">
+          🎉 Người trúng: {students[winner]?.name}
         </div>
-      </div>
+      )}
 
-      {/* MAIN */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* WHEEL */}
-        <div className="bg-white rounded-xl shadow p-6 flex justify-center items-center relative">
-          <canvas ref={canvasRef} width={400} height={400} />
+      {/* WHEEL */}
+      <canvas ref={canvasRef} width={400} height={400} />
 
-          {/* Pointer */}
-          <div className="absolute right-10 top-1/2 -translate-y-1/2">
-            <div className="w-0 h-0 border-t-[12px] border-b-[12px] border-l-[20px] border-t-transparent border-b-transparent border-l-black"></div>
-          </div>
-        </div>
-
-        {/* TABLE */}
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="font-semibold">DANH SÁCH HỌC SINH & ĐIỂM SỐ</h2>
-            <span className="text-green-500 text-sm">● ĐANG HOẠT ĐỘNG</span>
-          </div>
-
-          <table className="w-full text-sm border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border p-2">#</th>
-                <th className="border p-2 text-left">HỌ VÀ TÊN</th>
-                <th className="border p-2">TX1</th>
-                <th className="border p-2">TX2</th>
-                <th className="border p-2">TX3</th>
-                <th className="border p-2">TX4</th>
-                <th className="border p-2">TX5</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((name, i) => (
-                <tr key={i}>
-                  <td className="border p-2 text-center">{i + 1}</td>
-                  <td className="border p-2">{name}</td>
-                  <td className="border p-2 text-center">
-                    {i === 2 ? "7" : "-"}
-                  </td>
-                  <td className="border p-2 text-center">-</td>
-                  <td className="border p-2 text-center">-</td>
-                  <td className="border p-2 text-center">-</td>
-                  <td className="border p-2 text-center">-</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* TABLE */}
+      <table className="mt-4 border w-full">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>HỌ VÀ TÊN</th>
+          </tr>
+        </thead>
+        <tbody>
+          {students.map((s, i) => (
+            <tr key={i}>
+              <td>{i + 1}</td>
+              <td>{s.name}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
