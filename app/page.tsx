@@ -158,54 +158,58 @@ export default function Page() {
       {/* BUTTONS */}
       <div className="flex gap-3 mb-4 flex-wrap">
         <button onClick={spin} className="bg-blue-500 text-white px-4 py-2 rounded">
-          QUAY
-        </button>
-
-        <button onClick={removeWinner} className="bg-gray-200 px-4 py-2 rounded">
-          LOẠI BỎ NGƯỜI THẮNG
-        </button>
-
-        <label className="bg-gray-200 px-4 py-2 rounded cursor-pointer">
-          NHẬP EXCEL
-          <input type="file" hidden onChange={importExcel} />
-        </label>
-
-        <button onClick={saveData} className="bg-gray-200 px-4 py-2 rounded">
-          LƯU TRÌNH DUYỆT
-        </button>
-
-        <button onClick={exportExcel} className="bg-gray-200 px-4 py-2 rounded">
-          XUẤT EXCEL
-        </button>
-      </div>
-
-      {/* WINNER */}
-      {winner !== null && (
-        <div className="mb-2 text-green-600 font-bold">
-          🎉 Người trúng: {students[winner]?.name}
+        ▶ QUAY NGAY!</button>
+            <div class="toggle-container">
+                <input type="checkbox" id="removeWinnerCheck">
+                <label for="removeWinnerCheck">LOẠI BỎ NGƯỜI THẮNG</label>
+            </div>
+            <input type="file" id="excelInput" style="display: none;" accept=".xlsx, .xls" onchange="importExcel(event)">
+            <button onclick="document.getElementById('excelInput').click()">↑ NHẬP EXCEL</button>
+            <button onclick="saveData()">💾 LƯU TRÌNH DUYỆT</button>
+            <button onclick="exportExcel()">↓ XUẤT EXCEL</button>
         </div>
-      )}
-
-      {/* WHEEL */}
-      <canvas ref={canvasRef} width={400} height={400} />
-
-      {/* TABLE */}
-      <table className="mt-4 border w-full">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>HỌ VÀ TÊN</th>
-          </tr>
-        </thead>
-        <tbody>
-          {students.map((s, i) => (
-            <tr key={i}>
-              <td>{i + 1}</td>
-              <td>{s.name}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
+
+    <div class="main-container">
+        <div class="wheel-section">
+            <div class="wheel-container">
+                <div class="pointer"></div>
+                <div class="center-circle"></div>
+                
+                <div id="winnerOverlay" class="winner-overlay">
+                    <div class="trophy-icon">🎉</div>
+                    <h2>CHÚC MỪNG CHIẾN THẮNG</h2>
+                    <div class="winner-name" id="winnerNameDisplay">Tên Học Sinh</div>
+                    <button class="btn-continue" onclick="handleScoreInput()">TIẾP TỤC & NHẬP ĐIỂM</button>
+                </div>
+
+                <canvas id="wheelCanvas" width="1000" height="1000"></canvas>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <div class="table-header">
+                <h3>DANH SÁCH HỌC SINH & ĐIỂM SỐ</h3>
+                <span style="color: #4caf50; font-size: 12px;">● ĐANG HOẠT ĐỘNG</span>
+            </div>
+            <div class="table-wrapper">
+                <table id="scoreTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>HỌ VÀ TÊN</th>
+                            <th>TX1</th>
+                            <th>TX2</th>
+                            <th>TX3</th>
+                            <th>TX4</th>
+                            <th>TX5</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
   );
 }
